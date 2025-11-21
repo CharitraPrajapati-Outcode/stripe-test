@@ -1,0 +1,110 @@
+{% extends "home.html" %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8">
+      <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Subscribe</h4>
+          <p>Selected plan: <strong>{{ price.product.name|default:price.id }}</strong> — {{ price_amount }} {{ price_currency }}</p>
+
+          <form id="subscribe-form" method="post" action="{% url 'accounts:create_subscription' %}">
+            {% csrf_token %}
+            <input type="hidden" name="price_id" value="{{ price_id }}" />
+
+            <div class="mb-3">
+              <label class="form-label">Choose payment method</label>
+              {% if payment_methods %}
+                {% for pm in payment_methods %}
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="payment_choice" id="pm_{{ pm.id }}" value="{{ pm.id }}" {% if forloop.first %}checked{% endif %}>
+                    <label class="form-check-label" for="pm_{{ pm.id }}">{{ pm.brand|title }} ****{{ pm.last4 }} (exp {{ pm.exp_month }}/{{ pm.exp_year }})</label>
+                  </div>
+                {% endfor %}
+              {% endif %}
+
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="radio" name="payment_choice" id="pm_new" value="new" {% if not payment_methods %}checked{% endif %}>
+                <label class="form-check-label" for="pm_new">Use a new card</label>
+              </div>
+            </div>
+
+            <div id="new-card-container" class="mb-3" style="display: none;">
+              <label class="form-label">Card details</label>
+              <div id="card-element" class="StripeElement"></div>
+            </div>
+
+            <input type="hidden" name="payment_method" id="payment_method_input" value="" />
+
+            <button id="subscribe-button" type="submit" class="btn btn-primary">Subscribe</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block js %}
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>
+    (function(){
+      const publishable = "{{ stripe_publishable_key|default:'' }}";
+      if (!publishable) {
+        console.warn('Stripe publishable key missing');
+        return;
+      }
+      const stripe = Stripe(publishable);
+      const elements = stripe.elements();
+      const card = elements.create('card');
+
+      const pmNewRadio = document.getElementById('pm_new');
+      const newCardContainer = document.getElementById('new-card-container');
+      const paymentMethodInput = document.getElementById('payment_method_input');
+      const subscribeForm = document.getElementById('subscribe-form');
+
+      function toggleNewCard() {
+        if (pmNewRadio && pmNewRadio.checked) {
+          newCardContainer.style.display = 'block';
+          try { card.mount('#card-element'); } catch(e) {}
+        } else {
+          newCardContainer.style.display = 'none';
+          try { card.unmount(); } catch(e) {}
+        }
+      }
+
+      // initialize display
+      toggleNewCard();
+
+      // listen for change on payment_choice radios
+      const radios = document.querySelectorAll('input[name="payment_choice"]');
+      radios.forEach(r=>r.addEventListener('change', toggleNewCard));
+
+      subscribeForm.addEventListener('submit', async function(e){
+        // if new card selected, create setup and submit payment_method id
+        const selected = document.querySelector('input[name="payment_choice"]:checked').value;
+        if (selected !== 'new') {
+          paymentMethodInput.value = selected;
+          return; // proceed to submit
+        }
+
+        e.preventDefault();
+        try {
+          const clientSecret = "{{ setup_client_secret }}";
+          const result = await stripe.confirmCardSetup(clientSecret, {
+            payment_method: { card: card }
+          });
+          if (result.error) {
+            alert(result.error.message || 'Failed to set up card');
+            return;
+          }
+          paymentMethodInput.value = result.setupIntent.payment_method;
+          subscribeForm.submit();
+        } catch (err) {
+          console.error(err);
+          alert('Error attaching payment method');
+        }
+      });
+    })();
+  </script>
+{% endblock %}

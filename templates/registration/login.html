@@ -1,0 +1,37 @@
+{% extends "home.html" %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="card-title">Login</h2>
+          {# Django messages (e.g. success/info/error) #}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+
+          {# Non-field form errors (e.g. invalid credentials) #}
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+              <div class="mb-3">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+              </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Login</button>
+          </form>
+          <p class="mt-3">Don't have an account? <a href="{% url 'accounts:register' %}">Register</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

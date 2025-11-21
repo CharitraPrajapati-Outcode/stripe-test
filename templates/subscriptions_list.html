@@ -1,0 +1,91 @@
+{% extends "home.html" %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8">
+      <div class="card">
+        <div class="card-body">
+          <h3 class="mb-3">My Subscriptions</h3>
+
+          <h5 class="mt-2">Active</h5>
+          {% if active_subscriptions and active_subscriptions.exists %}
+            <div class="row g-3">
+              {% for s in active_subscriptions %}
+                <div class="col-12">
+                  <div class="sub-card d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                      <div class="sub-icon me-3">💠</div>
+                      <div>
+                        <div class="fw-semibold">{{ s.plan.name }}</div>
+                        <div class="muted-small">
+                          {% if s.cancel_at_period_end %}
+                            Ending at <strong>{{ s.current_period_end|date:"M j, Y" }}</strong>
+                          {% elif s.current_period_end %}
+                            Next billing: <strong>{{ s.current_period_end|date:"M j, Y" }}</strong>
+                          {% elif s.current_period_start %}
+                            Started: <strong>{{ s.current_period_start|date:"M j, Y" }}</strong>
+                          {% else %}
+                            Status: <strong>{{ s.status|capfirst }}</strong>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                      <div class="price-box me-3 text-end">
+                        <div class="text-muted small">Price</div>
+                        <div class="fw-semibold">{{ s.plan.price|floatformat:2 }}</div>
+                      </div>
+                      <div class="sub-actions">
+                        {% if s.cancel_at_period_end %}
+                          <button class="btn btn-sm btn-outline-secondary me-1" disabled>Cancel at period end</button>
+                        {% else %}
+                          <form method="post" action="{% url 'accounts:cancel_subscription' s.stripe_subscription_id %}" class="d-inline me-1">
+                            {% csrf_token %}
+                            <input type="hidden" name="when" value="period_end">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel at period end</button>
+                          </form>
+                        {% endif %}
+                        <form method="post" action="{% url 'accounts:cancel_subscription' s.stripe_subscription_id %}" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="when" value="now">
+                          <button type="submit" class="btn btn-sm btn-danger">Cancel now</button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="mt-3">You have no active subscriptions.</div>
+          {% endif %}
+
+          <hr />
+          <h5 class="mt-3">Past / Cancelled</h5>
+          {% if cancelled_subscriptions and cancelled_subscriptions.exists %}
+            <div class="row g-3">
+              {% for s in cancelled_subscriptions %}
+                <div class="col-12">
+                  <div class="d-flex sub-card align-items-stretch">
+                    <div class="accent-left" style="background: linear-gradient(180deg,#f6d365,#fda085);"></div>
+                    <div class="card flex-grow-1 border-0 bg-light">
+                      <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                          <h6 class="mb-1">{{ s.plan.name }}</h6>
+                          <div class="small text-muted">Cancelled {% if s.cancelled_at %}on {{ s.cancelled_at|date:"M j, Y, P" }}{% elif s.current_period_end %}on {{ s.current_period_end|date:"M j, Y, P" }}{% elif s.updated_at %}on {{ s.updated_at|date:"M j, Y, P" }}{% endif %}</div>
+                        </div>
+                        <span class="badge bg-secondary">Cancelled</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="mt-3">No past or cancelled subscriptions.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
