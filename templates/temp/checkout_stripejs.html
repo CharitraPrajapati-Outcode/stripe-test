@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Checkout (Stripe.js)</title>
+  <!-- Stripe.js -->
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <h1>Buy a Plan (Stripe.js)</h1>
+
+  <form id="checkout-form">
+    <label>
+      Price ID:
+      <input id="price_id" name="price_id" placeholder="price_..." required />
+    </label>
+    <button type="submit">Checkout</button>
+  </form>
+
+  <script>
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+
+    document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const priceId = document.getElementById('price_id').value.trim();
+      if (!priceId) return alert('Enter price id');
+
+      const jwt = '{{ jwt_token|default:"" }}'; // optional JWT injected by view
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      };
+      if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
+
+      try {
+        const res = await fetch('/api/subscriptions/checkout/', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ price_id: priceId }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'Checkout API error');
+          return;
+        }
+
+        // If backend provided publishableKey + sessionId, use Stripe.js
+        if (data.publishableKey && data.sessionId) {
+          const stripe = Stripe(data.publishableKey);
+          const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+          if (error) {
+            // Stripe.js returned an immediate error
+            console.error(error);
+            alert(error.message || 'Stripe redirect failed');
+          }
+          return;
+        }
+
+        // Fallback: if backend returned `url`, navigate to it
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
+        alert('Unexpected response: ' + JSON.stringify(data));
+      } catch (err) {
+        console.error(err);
+        alert('Network error');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+{% extends "home.html" %}
+
+{% block content %}
+  <div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="mb-0">Connected Stripe Account</h2>
+        <small class="text-muted">Manage onboarding and view account details</small>
+      </div>
+      <div>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:dashboard' %}">Back to dashboard</a>
+      </div>
+    </div>
+
+    {% if not connected_acct_id %}
+      <div class="alert alert-info">No connected Stripe account found.</div>
+      <a class="btn btn-primary" href="{% url 'accounts:connect_start' %}">Connect with Stripe</a>
+    {% else %}
+
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Summary</h5>
+            <p class="mb-1">Account ID: <strong>{{ connected_acct_id }}</strong></p>
+            <p class="mb-1">Country: <strong>{{ connected_account.country|default:'—' }}</strong></p>
+            <p class="mb-1">Business type: <strong>{{ connected_account.business_type|default:'—' }}</strong></p>
+
+            <p class="mb-2">Status:
+              {% if connected_needs_onboarding %}
+                <span class="badge bg-warning text-dark ms-1">Onboarding incomplete</span>
+              {% else %}
+                <span class="badge bg-success ms-1">Onboarding complete</span>
+              {% endif %}
+            </p>
+
+            <p class="mb-1">Charges: 
+              {% if connected_account.charges_enabled %}
+                <span class="badge bg-success">Enabled</span>
+              {% else %}
+                <span class="badge bg-secondary">Disabled</span>
+              {% endif %}
+            </p>
+            <p class="mb-1">Payouts: 
+              {% if connected_account.payouts_enabled %}
+                <span class="badge bg-success">Enabled</span>
+              {% else %}
+                <span class="badge bg-secondary">Disabled</span>
+              {% endif %}
+            </p>
+
+            <div class="mt-3">
+              {% if connected_needs_onboarding %}
+                <a class="btn btn-warning btn-sm" href="{% url 'accounts:connect_start' %}">Continue onboarding</a>
+              {% else %}
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'accounts:connect_start' %}">Reconnect / Update</a>
+              {% endif %}
+              <!-- Remove connected account -->
+              <form method="post" action="{% url 'accounts:connect_remove' %}" class="d-inline ms-2" onsubmit="return confirm('Are you sure you want to remove your connected Stripe account? This will delete the account on Stripe and unlink it from your profile.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm">Remove connected account</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {% if connected_account.business_profile %}
+        <div class="card mt-3">
+          <div class="card-body">
+            <h6 class="card-title">Business Profile</h6>
+            <p class="mb-0"><strong>{{ connected_account.business_profile.name|default:'—' }}</strong></p>
+            <p class="small text-muted mb-0">{{ connected_account.business_profile.product_description|default:'' }}</p>
+            {% if connected_account.business_profile.url %}
+              <p class="mt-2"><a href="//{{ connected_account.business_profile.url }}" target="_blank">Website</a></p>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-12 col-md-8">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Details</h5>
+            <div class="row">
+              <div class="col-6">
+                <p class="mb-1"><strong>Default currency</strong><br>{{ connected_account.default_currency|default:'—' }}</p>
+                <p class="mb-1"><strong>Timezone</strong><br>{{ dashboard_timezone|default:'—' }}</p>
+              </div>
+              <div class="col-6">
+                <p class="mb-1"><strong>Capabilities</strong><br>
+                  {% if connected_account.capabilities %}
+                    {% for k,v in connected_account.capabilities.items %}
+                      <span class="badge bg-light text-dark me-1">{{ k }}: {{ v }}</span>
+                    {% endfor %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+
+            <hr />
+
+            <h6>Requirements</h6>
+            {% if connected_account.requirements and connected_account.requirements.currently_due %}
+              <ul>
+                {% for item in connected_account.requirements.currently_due %}
+                  <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted">No outstanding requirements.</p>
+            {% endif %}
+
+            {% if individual_info %}
+              <hr />
+              <h6>Representative</h6>
+              <p class="mb-1"><strong>{{ individual_info.first_name|default:'' }} {{ individual_info.last_name|default:'' }}</strong></p>
+              <p class="small text-muted mb-0">{{ individual_info.email|default:'' }}</p>
+              <p class="small text-muted mb-0">Person ID: {{ individual_info.id|default:'' }}</p>
+              <p class="small text-muted mb-0">Account: {{ individual_info.account|default:'' }}</p>
+              {% if individual_info.created_human %}
+                <p class="small text-muted mb-0">Created: {{ individual_info.created_human }}</p>
+              {% elif individual_info.created %}
+                <p class="small text-muted mb-0">Created (ts): {{ individual_info.created }}</p>
+              {% endif %}
+              {% if individual_info.relationship %}
+                <div class="mt-2">
+                  <strong>Relationship</strong>
+                  <ul class="mb-0">
+                    <li>Representative: {{ individual_info.relationship.representative|default:False }}</li>
+                    <li>Owner: {{ individual_info.relationship.owner|default:False }}</li>
+                    <li>Percent ownership: {{ individual_info.relationship.percent_ownership|default:'—' }}</li>
+                    <li>Title: {{ individual_info.relationship.title|default:'—' }}</li>
+                  </ul>
+                </div>
+              {% endif %}
+            {% endif %}
+
+            <hr />
+            <details>
+              <summary class="mb-2">Full JSON</summary>
+              <pre style="max-height:400px;overflow:auto;background:#f8f9fa;padding:10px;border-radius:6px">{{ connected_account }}</pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+  </div>
+{% endblock %}

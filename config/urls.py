@@ -17,9 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from .views import HomeView
+from billing import views as billing_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include(('accounts.urls', 'accounts'), namespace='accounts')),
+    path('stripe/webhook', billing_views.stripe_webhook, name='stripe-webhook'),
     path("", HomeView.as_view(), name="home"),
 ]

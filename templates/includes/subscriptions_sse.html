@@ -1,0 +1,28 @@
+{# Reusable SSE client for subscription updates. Include in pages that should auto-reload. #}
+<script>
+  // Real-time updates via Server-Sent Events (SSE). Reload the page when subscriptions change.
+  if (window.EventSource) {
+    try {
+      const sseUrl = '{% url "accounts:subscriptions_stream" %}';
+      const es = new EventSource(sseUrl);
+      es.onmessage = function(e) {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload && payload.event === 'subscriptions_updated') {
+            console.debug('Subscriptions updated event received, reloading...');
+            location.reload();
+          }
+        } catch (err) {
+          console.debug('SSE message parse error, reloading as fallback');
+          location.reload();
+        }
+      };
+      es.onerror = function(err) {
+        console.warn('SSE connection error:', err);
+        try { es.close(); } catch(e) {}
+      };
+    } catch (err) {
+      console.warn('Could not open SSE connection for subscriptions updates:', err);
+    }
+  }
+</script>

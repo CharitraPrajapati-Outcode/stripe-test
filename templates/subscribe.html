@@ -36,7 +36,11 @@
 
             <input type="hidden" name="payment_method" id="payment_method_input" value="" />
 
-            <button id="subscribe-button" type="submit" class="btn btn-primary">Subscribe</button>
+            {% if already_subscribed %}
+              <button id="subscribe-button" type="button" class="btn btn-secondary" disabled>Already subscribed</button>
+            {% else %}
+              <button id="subscribe-button" type="submit" class="btn btn-primary">Subscribe</button>
+            {% endif %}
           </form>
         </div>
       </div>
@@ -82,15 +86,26 @@
 
       subscribeForm.addEventListener('submit', async function(e){
         // if new card selected, create setup and submit payment_method id
-        const selected = document.querySelector('input[name="payment_choice"]:checked').value;
-        if (selected !== 'new') {
-          paymentMethodInput.value = selected;
+        const selected = document.querySelector('input[name="payment_choice"]:checked');
+        if (!selected) {
+          alert('Please select a payment method');
+          e.preventDefault();
+          return;
+        }
+
+        const selectedValue = selected.value;
+        if (selectedValue !== 'new') {
+          paymentMethodInput.value = selectedValue;
           return; // proceed to submit
         }
 
         e.preventDefault();
         try {
           const clientSecret = "{{ setup_client_secret }}";
+          if (!clientSecret) {
+            alert('Setup intent not available');
+            return;
+          }
           const result = await stripe.confirmCardSetup(clientSecret, {
             payment_method: { card: card }
           });
@@ -98,11 +113,16 @@
             alert(result.error.message || 'Failed to set up card');
             return;
           }
+          if (!result.setupIntent || !result.setupIntent.payment_method) {
+            alert('Failed to create payment method');
+            return;
+          }
           paymentMethodInput.value = result.setupIntent.payment_method;
+          console.log('Payment method set to:', paymentMethodInput.value);
           subscribeForm.submit();
         } catch (err) {
-          console.error(err);
-          alert('Error attaching payment method');
+          console.error('Error attaching payment method:', err);
+          alert('Error attaching payment method: ' + err.message);
         }
       });
     })();

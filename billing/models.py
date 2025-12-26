@@ -7,6 +7,8 @@ from django.utils import timezone
 class User(AbstractUser):
     """Custom user model that stores Stripe customer id for payment linking."""
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    # Stripe Connected Account ID for Stripe Connect (e.g. acct_XXXXX)
+    stripe_connected_account_id = models.CharField(max_length=255, blank=True, null=True)
 
 
 class SubscriptionPlan(models.Model):
@@ -56,6 +58,7 @@ class SubscriptionPayment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10, default='usd')
     stripe_invoice_id = models.CharField(max_length=255, blank=True, null=True)
+    invoice_pdf_url = models.URLField(blank=True, null=True)
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True)
     stripe_charge_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=30, default='succeeded')
@@ -63,4 +66,26 @@ class SubscriptionPayment(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.amount} {self.currency} ({self.status})"
+
+
+class ConnectedAccountInvoice(models.Model):
+    """Record of an invoice created for a Stripe Connected Account.
+
+    This model stores the invoice identifiers and metadata so the platform
+    can track invoices that were created/sent on behalf of connected accounts.
+    """
+    connected_account = models.CharField(max_length=255)
+    stripe_invoice_id = models.CharField(max_length=255, blank=True, null=True)
+    customer_email = models.EmailField(blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=10, default='USD')
+    status = models.CharField(max_length=50, default='draft')
+    hosted_invoice_url = models.URLField(blank=True, null=True)
+    invoice_pdf_url = models.URLField(blank=True, null=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Invoice {self.stripe_invoice_id or '(local)'} for {self.connected_account} ({self.status})"
 

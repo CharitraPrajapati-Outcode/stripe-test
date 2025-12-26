@@ -93,3 +93,7 @@ uploads/
 firebase_creds.json
 
 debug.log 
+
+# Logs
+logs/
+stripe_webhook.log
